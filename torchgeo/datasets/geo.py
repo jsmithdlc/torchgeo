@@ -948,6 +948,7 @@ class IntersectionDataset(GeoDataset):
             [Sequence[dict[str, Any]]], dict[str, Any]
         ] = concat_samples,
         transforms: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+        min_intersection_size: float = 1,
     ) -> None:
         """Initialize a new IntersectionDataset instance.
 
@@ -962,6 +963,7 @@ class IntersectionDataset(GeoDataset):
             collate_fn: function used to collate samples
             transforms: a function/transform that takes input sample and its target as
                 entry and returns a transformed version
+            min_intersection_size: minimum size of the intersection in units of CRS
 
         Raises:
             RuntimeError: if datasets have no spatiotemporal intersection
@@ -980,6 +982,7 @@ class IntersectionDataset(GeoDataset):
 
         self.crs = dataset1.crs
         self.res = dataset1.res
+        self.min_intersection_size = min_intersection_size
 
         # Merge dataset indices into a single index
         self._merge_dataset_indices()
@@ -988,18 +991,20 @@ class IntersectionDataset(GeoDataset):
         """Create a new R-tree out of the individual indices from two datasets."""
         i = 0
         ds1, ds2 = self.datasets
-        new_boxes = set()
         for hit1 in ds1.index.intersection(ds1.index.bounds, objects=True):
             for hit2 in ds2.index.intersection(hit1.bounds, objects=True):
                 box1 = BoundingBox(*hit1.bounds)
                 box2 = BoundingBox(*hit2.bounds)
                 box3 = box1 & box2
+                intersection_width = abs(box3.maxx - box3.minx)
+                intersection_height = abs(box3.maxy - box3.miny)
                 # Skip 0 area overlap (unless 0 area dataset)
-                if (box3.area > 0 or box1.area == 0 or box2.area == 0) and (
-                    box3 not in new_boxes
+                if (
+                    (box3.area > 0 or box1.area == 0 or box2.area == 0)
+                    and intersection_width >= self.min_intersection_size
+                    and intersection_height >= self.min_intersection_size
                 ):
                     self.index.insert(i, tuple(box3))
-                    new_boxes.add(box3)
                     i += 1
 
         if i == 0:
