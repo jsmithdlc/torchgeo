@@ -3,9 +3,9 @@
 
 """South America Soybean Dataset."""
 
-import pathlib
+import os
 from collections.abc import Callable, Iterable
-from typing import Any
+from typing import Any, ClassVar
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
@@ -47,7 +47,7 @@ class SouthAmericaSoybean(RasterDataset):
     is_image = False
     url = 'https://glad.umd.edu/projects/AnnualClassMapsV1/SouthAmerica_Soybean_{}.tif'
 
-    md5s = {
+    md5s: ClassVar[dict[int, str]] = {
         2021: 'edff3ada13a1a9910d1fe844d28ae4f',
         2020: '0709dec807f576c9707c8c7e183db31',
         2019: '441836493bbcd5e123cff579a58f5a4f',
@@ -113,7 +113,7 @@ class SouthAmericaSoybean(RasterDataset):
         # Check if the extracted files already exist
         if self.files:
             return
-        assert isinstance(self.paths, str | pathlib.Path)
+        assert isinstance(self.paths, str | os.PathLike)
 
         # Check if the user requested to download the dataset
         if not self.download:

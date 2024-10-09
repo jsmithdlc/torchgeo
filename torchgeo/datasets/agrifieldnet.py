@@ -4,10 +4,9 @@
 """AgriFieldNet India Challenge dataset."""
 
 import os
-import pathlib
 import re
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import matplotlib.pyplot as plt
 import torch
@@ -90,8 +89,8 @@ class AgriFieldNet(RasterDataset):
         _(?P<band>B[0-9A-Z]{2})_10m
     """
 
-    rgb_bands = ['B04', 'B03', 'B02']
-    all_bands = [
+    rgb_bands = ('B04', 'B03', 'B02')
+    all_bands = (
         'B01',
         'B02',
         'B03',
@@ -104,9 +103,9 @@ class AgriFieldNet(RasterDataset):
         'B09',
         'B11',
         'B12',
-    ]
+    )
 
-    cmap = {
+    cmap: ClassVar[dict[int, tuple[int, int, int, int]]] = {
         0: (0, 0, 0, 255),
         1: (255, 211, 0, 255),
         2: (255, 37, 37, 255),
@@ -181,10 +180,10 @@ class AgriFieldNet(RasterDataset):
         Returns:
             data, label, and field ids at that index
         """
-        assert isinstance(self.paths, str | pathlib.Path)
+        assert isinstance(self.paths, str | os.PathLike)
 
         hits = self.index.intersection(tuple(query), objects=True)
-        filepaths = cast(list[Path], [hit.object for hit in hits])
+        filepaths = cast(list[str], [hit.object for hit in hits])
 
         if not filepaths:
             raise IndexError(
@@ -246,7 +245,7 @@ class AgriFieldNet(RasterDataset):
 
     def _download(self) -> None:
         """Download the dataset."""
-        assert isinstance(self.paths, str | pathlib.Path)
+        assert isinstance(self.paths, str | os.PathLike)
         os.makedirs(self.paths, exist_ok=True)
         azcopy = which('azcopy')
         azcopy('sync', f'{self.url}', self.paths, '--recursive=true')

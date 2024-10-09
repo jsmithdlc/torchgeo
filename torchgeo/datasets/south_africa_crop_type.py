@@ -4,10 +4,9 @@
 """South Africa Crop Type Competition Dataset."""
 
 import os
-import pathlib
 import re
-from collections.abc import Callable, Iterable
-from typing import Any, cast
+from collections.abc import Callable, Iterable, Sequence
+from typing import Any, ClassVar, cast
 
 import matplotlib.pyplot as plt
 import torch
@@ -79,9 +78,9 @@ class SouthAfricaCropType(RasterDataset):
         _10m
     """
     date_format = '%Y_%m_%d'
-    rgb_bands = ['B04', 'B03', 'B02']
-    s1_bands = ['VH', 'VV']
-    s2_bands = [
+    rgb_bands = ('B04', 'B03', 'B02')
+    s1_bands = ('VH', 'VV')
+    s2_bands = (
         'B01',
         'B02',
         'B03',
@@ -94,9 +93,9 @@ class SouthAfricaCropType(RasterDataset):
         'B09',
         'B11',
         'B12',
-    ]
-    all_bands: list[str] = s1_bands + s2_bands
-    cmap = {
+    )
+    all_bands = s1_bands + s2_bands
+    cmap: ClassVar[dict[int, tuple[int, int, int, int]]] = {
         0: (0, 0, 0, 255),
         1: (255, 211, 0, 255),
         2: (255, 37, 37, 255),
@@ -113,8 +112,8 @@ class SouthAfricaCropType(RasterDataset):
         self,
         paths: Path | Iterable[Path] = 'data',
         crs: CRS | None = None,
-        classes: list[int] = list(cmap.keys()),
-        bands: list[str] = s2_bands,
+        classes: Sequence[int] = list(cmap.keys()),
+        bands: Sequence[str] = s2_bands,
         transforms: Callable[[dict[str, Tensor]], dict[str, Tensor]] | None = None,
         download: bool = False,
     ) -> None:
@@ -161,11 +160,11 @@ class SouthAfricaCropType(RasterDataset):
         Returns:
             data and labels at that index
         """
-        assert isinstance(self.paths, str | pathlib.Path)
+        assert isinstance(self.paths, str | os.PathLike)
 
         # Get all files matching the given query
         hits = self.index.intersection(tuple(query), objects=True)
-        filepaths = cast(list[Path], [hit.object for hit in hits])
+        filepaths = cast(list[str], [hit.object for hit in hits])
 
         if not filepaths:
             raise IndexError(
@@ -253,7 +252,7 @@ class SouthAfricaCropType(RasterDataset):
 
     def _download(self) -> None:
         """Download the dataset."""
-        assert isinstance(self.paths, str | pathlib.Path)
+        assert isinstance(self.paths, str | os.PathLike)
         os.makedirs(self.paths, exist_ok=True)
         azcopy = which('azcopy')
         azcopy('sync', f'{self.url}', self.paths, '--recursive=true')
