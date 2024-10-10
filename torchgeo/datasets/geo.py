@@ -311,10 +311,10 @@ class GeoDataset(Dataset[dict[str, Any]], abc.ABC):
                 pathname = os.path.join(path, "**", self.filename_glob)
                 files |= set(glob.iglob(pathname, recursive=True))
             elif (os.path.isfile(path) or path_is_vsi(path)) and fnmatch.fnmatch(
-                str(path), f'*{self.filename_glob}'
+                str(path), f"*{self.filename_glob}"
             ):
                 files.add(str(path))
-            elif not hasattr(self, 'download'):
+            elif not hasattr(self, "download"):
                 warnings.warn(
                     f"Could not find any relevant files for provided path '{path}'. "
                     f"Path was ignored.",
@@ -414,7 +414,7 @@ class RasterDataset(GeoDataset):
 
     def __init__(
         self,
-        paths: Path | Iterable[Path] = 'data',
+        paths: Path | Iterable[Path] = "data",
         crs: CRS | None = None,
         res: float | None = None,
         bands: Sequence[str] | None = None,
@@ -548,7 +548,7 @@ class RasterDataset(GeoDataset):
         else:
             data = self._merge_files(filepaths, query, self.band_indexes)
 
-        sample = {'crs': self.crs, 'bounds': query}
+        sample = {"crs": self.crs, "bounds": query}
 
         data = data.to(self.dtype)
         if self.is_image:
@@ -653,7 +653,7 @@ class VectorDataset(GeoDataset):
 
     def __init__(
         self,
-        paths: Path | Iterable[Path] = 'data',
+        paths: Path | Iterable[Path] = "data",
         crs: CRS | None = None,
         res: float = 0.0001,
         transforms: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
@@ -778,7 +778,7 @@ class VectorDataset(GeoDataset):
         masks = array_to_tensor(masks)
 
         masks = masks.to(self.dtype)
-        sample = {'mask': masks, 'crs': self.crs, 'bounds': query}
+        sample = {"mask": masks, "crs": self.crs, "bounds": query}
 
         if self.transforms is not None:
             sample = self.transforms(sample)
@@ -850,7 +850,7 @@ class NonGeoClassificationDataset(NonGeoDataset, ImageFolder):  # type: ignore[m
 
     def __init__(
         self,
-        root: Path = 'data',
+        root: Path = "data",
         transforms: Callable[[dict[str, Tensor]], dict[str, Tensor]] | None = None,
         loader: Callable[[Path], Any] | None = pil_loader,
         is_valid_file: Callable[[Path], bool] | None = None,
@@ -995,6 +995,7 @@ class IntersectionDataset(GeoDataset):
         """Create a new R-tree out of the individual indices from two datasets."""
         i = 0
         ds1, ds2 = self.datasets
+        intersections = np.array([], dtype=shapely.Polygon)
         for hit1 in ds1.index.intersection(ds1.index.bounds, objects=True):
             for hit2 in ds2.index.intersection(hit1.bounds, objects=True):
                 box1 = BoundingBox(*hit1.bounds)
@@ -1002,12 +1003,27 @@ class IntersectionDataset(GeoDataset):
                 box3 = box1 & box2
                 intersection_width = abs(box3.maxx - box3.minx)
                 intersection_height = abs(box3.maxy - box3.miny)
+
+                # check if box intersects by more than 95% to any retrieved box
+                box3_shp = shapely.box(box3.minx, box3.miny, box3.maxx, box3.maxy)
+                overlaping_existing = box3_shp.intersects(intersections)
+                intersection_existing = box3_shp.intersection(
+                    intersections[overlaping_existing]
+                )
+                accounted_for = any(
+                    [
+                        poly.area / (box3_shp.area + 1e-15) > 0.95
+                        for poly in intersection_existing
+                    ]
+                )
                 # Skip 0 area overlap (unless 0 area dataset)
                 if (
                     (box3.area > 0 or box1.area == 0 or box2.area == 0)
                     and intersection_width >= self.min_intersection_size
                     and intersection_height >= self.min_intersection_size
+                    and not accounted_for
                 ):
+                    intersections = np.concatenate([intersections, [box3_shp]])
                     self.index.insert(i, tuple(box3))
                     i += 1
 
