@@ -995,7 +995,6 @@ class IntersectionDataset(GeoDataset):
         """Create a new R-tree out of the individual indices from two datasets."""
         i = 0
         ds1, ds2 = self.datasets
-        intersections = np.array([], dtype=shapely.Polygon)
         for hit1 in ds1.index.intersection(ds1.index.bounds, objects=True):
             for hit2 in ds2.index.intersection(hit1.bounds, objects=True):
                 box1 = BoundingBox(*hit1.bounds)
@@ -1004,26 +1003,30 @@ class IntersectionDataset(GeoDataset):
                 intersection_width = abs(box3.maxx - box3.minx)
                 intersection_height = abs(box3.maxy - box3.miny)
 
+                # skip if intersection is too small
+                if (
+                    intersection_width < self.min_intersection_size
+                    or intersection_height < self.min_intersection_size
+                    or box3.area == 0
+                ):
+                    continue
+
                 # check if box intersects by more than 95% to any retrieved box
-                box3_shp = shapely.box(box3.minx, box3.miny, box3.maxx, box3.maxy)
-                overlaping_existing = box3_shp.intersects(intersections)
-                intersection_existing = box3_shp.intersection(
-                    intersections[overlaping_existing]
+                intersection_existing = self.index.intersection(
+                    tuple(box3), objects=True
                 )
+                area_inter_existing = [
+                    (BoundingBox(*hit_inter.bounds) & box3).area
+                    for hit_inter in intersection_existing
+                ]
                 accounted_for = any(
                     [
-                        poly.area / (box3_shp.area + 1e-15) > 0.95
-                        for poly in intersection_existing
+                        overlap_area / (box3.area + 1e-15) > 0.95
+                        for overlap_area in area_inter_existing
                     ]
                 )
                 # Skip 0 area overlap (unless 0 area dataset)
-                if (
-                    (box3.area > 0 or box1.area == 0 or box2.area == 0)
-                    and intersection_width >= self.min_intersection_size
-                    and intersection_height >= self.min_intersection_size
-                    and not accounted_for
-                ):
-                    intersections = np.concatenate([intersections, [box3_shp]])
+                if (box1.area == 0 or box2.area == 0) and not accounted_for:
                     self.index.insert(i, tuple(box3))
                     i += 1
 
