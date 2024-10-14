@@ -1004,10 +1004,8 @@ class IntersectionDataset(GeoDataset):
                 intersection_height = abs(box3.maxy - box3.miny)
 
                 # skip if intersection is too small
-                if (
-                    intersection_width < self.min_intersection_size
-                    or intersection_height < self.min_intersection_size
-                    or box3.area == 0
+                if (intersection_width < self.min_intersection_size) or (
+                    intersection_height < self.min_intersection_size
                 ):
                     continue
 
@@ -1021,12 +1019,14 @@ class IntersectionDataset(GeoDataset):
                 ]
                 accounted_for = any(
                     [
-                        overlap_area / (box3.area + 1e-15) > 0.95
+                        (overlap_area / (box3.area + 1e-15)) > 0.95
                         for overlap_area in area_inter_existing
                     ]
                 )
                 # Skip 0 area overlap (unless 0 area dataset)
-                if (box1.area == 0 or box2.area == 0) and not accounted_for:
+                if (
+                    box1.area == 0 or box2.area == 0 or box3.area > 0
+                ) and not accounted_for:
                     self.index.insert(i, tuple(box3))
                     i += 1
 
